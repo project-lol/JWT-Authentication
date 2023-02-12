@@ -178,3 +178,34 @@ app.post("/api/refreshtoken", (req, res) => {
 }
 
 ```
+
+<br>
+
+### 클라이언트에서 자동으로 refreshToken을 호출하는 방법
+
+- 클라이언트에서 자동으로 refreshToken을 호출하는 방법은 axios의 interceptor를 사용하는 것이다. interceptor는 axios를 사용할 때, 요청을 보내기 전에, 요청을 보낸 후에, 요청을 보내기 전에, 요청을 보낸 후에, 특정 작업을 할 수 있다. interceptor를 사용하면, accessToken이 만료되었을 때, refreshToken을 호출해서, 새로운 accessToken을 발급받을 수 있다.
+
+```js
+const axiosJWT = axios.create()
+
+axiosJWT.interceptors.request.use(
+  async config => {
+    let currentDate = new Date()
+    const decodedToken = jwt_decode(user.accessToken)
+    /*
+      1. decodedToken.exp * 1000 : 토큰의 만료시간을 밀리초로 변환
+      2. currentDate.getTime() : 현재 시간을 밀리초로 변환
+      3. decodedToken.exp * 1000 < currentDate.getTime() : 토큰의 만료시간이 현재시간보다 작으면 true
+      4. decodedToken.exp * 1000 > currentDate.getTime() : 토큰의 만료시간이 현재시간보다 크면 false
+    */
+    if (decodedToken.exp * 1000 < currentDate.getTime()) {
+      const data = await refreshToken()
+      config.headers["authorization"] = "Bearer " + data.accessToken
+    }
+    return config
+  },
+  error => {
+    return Promise.reject(error)
+  }
+)
+```
