@@ -48,3 +48,40 @@ app.post("/api/login", (req, res) => {
 - 위 코드는 서버에서 토큰을 생성하는 코드이다. `jwt.sign()`을 통해 토큰을 생성한다. 첫번째 인자로는 토큰에 담길 정보를 넣고, 두번째 인자로는 비밀키를 넣는다. 이 비밀키는 서버에서만 알고있어야한다. 클라이언트가 이 비밀키를 알고있다면, 토큰을 변조할 수 있기 때문이다.
 - `jwt.sign()`을 통해 토큰을 생성하면, 토큰이 생성된다. 이 토큰은 클라이언트에게 보내줘야한다. 클라이언트는 이 토큰을 헤더에 담아서 서버에 요청을 보낸다.
 - 위 코드에선 유저가 로그인을 하면 username과 password가 존재하는지 확인한다. 존재한다면, 토큰을 생성하고, 클라이언트에게 보내준다.
+
+<br>
+
+### 클라이언트에서 보낸 토큰을 서버가 인증하는 방법
+
+- 이번 프로젝트를 통해 클라이언트에서 보낸 토큰을 서버가 인증하는 방법을 알게되었다.
+- 먼저 클라이언트는 요청을 보낼 때 헤더에 토큰을 담아서 보낸다. 이때 Bearer를 입력해주어야 한다.
+- 서버는 클라이언트가 보낸 토큰을 검증한다. 검증하는 방법은 다음과 같다.
+
+```js
+const verify = (req, res, next) => {
+  // 클라이언트에서 헤더에 토큰을 담아서 보내오면 그 토큰을 검증한다.
+  const authHeader = req.headers.authorization
+  if (authHeader) {
+    const token = authHeader.split(" ")[1]
+
+    jwt.verify(token, "mySecretKey", (err, user) => {
+      if (err) {
+        return res.status(403).json("Token is not valid!")
+      }
+      req.user = user
+      next()
+    })
+  } else {
+    res.status(401).json("You are not authenticated!")
+  }
+}
+```
+
+- 위 코드는 클라이언트가 보낸 토큰을 검증하는 코드이다. `jwt.verify()`를 통해 토큰을 검증한다. 첫번째 인자로는 토큰을 넣고, 두번째 인자로는 비밀키를 넣는다.
+- `jwt.verify()`를 통해 토큰을 검증하면, 토큰에 담긴 정보를 `req.user`에 담아서 다음 미들웨어로 넘겨준다.
+
+<br>
+
+### 토큰을 담을 떄 Bearer를 명시해주는 이유
+
+- Bearer 키워드는 인증의 종류를 명시하는 것이다. Bearer를 명시해줌으로써, Bearer Token authentication이라는 인증 방식을 사용한다는 것을 알 수 있다.
