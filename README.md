@@ -162,3 +162,19 @@ app.post("/api/refreshtoken", (req, res) => {
 ```
 
 - 유저가 refreshtoken api를 호출하면, 유저가 보낸 refreshToken을 검증한다. 검증이 끝나면, 새로운 accessToken과 refreshToken을 발급해준다. 새로운 refreshToken은 refreshTokens 배열에 담아둔다.
+
+<br>
+
+### 클라이언트 package.json에 명시된 proxy
+
+- package.json에 명시된 proxy는 axios를 사용할 때, url을 생략할 수 있게 해준다. 예를 들어, `http://localhost:3001/api/users`를 `api/users`로 사용할 수 있다.
+
+```js
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  ...
+  "proxy": "http://localhost:3001"
+}
+
+```
