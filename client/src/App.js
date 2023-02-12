@@ -10,17 +10,65 @@ function App() {
   const [error, setError] = useState(false)
   const [success, setSucess] = useState(false)
 
+  const refreshToken = async () => {
+    try {
+      const res = await axios.post("/refresh", { token: user.refreshToken })
+      setUser({
+        ...user,
+        accessToken: res.data.accessToken,
+        refreshToken: res.data.refreshToken,
+      })
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
   const handleSubmit = async e => {
     e.preventDefault()
     try {
       const res = await axios.post("/login", { username, password })
       setUser(res.data)
+      return res.data
     } catch (err) {
       setError(true)
     }
   }
 
-  const handleDelete = () => {}
+  const axiosJWT = axios.create()
+
+  axiosJWT.interceptors.request.use(
+    async config => {
+      let currentDate = new Date()
+      const decodedToken = jwt_decode(user.accessToken)
+      /*
+      1. decodedToken.exp * 1000 : 토큰의 만료시간을 밀리초로 변환
+      2. currentDate.getTime() : 현재 시간을 밀리초로 변환
+      3. decodedToken.exp * 1000 < currentDate.getTime() : 토큰의 만료시간이 현재시간보다 작으면 true
+      4. decodedToken.exp * 1000 > currentDate.getTime() : 토큰의 만료시간이 현재시간보다 크면 false
+    */
+      if (decodedToken.exp * 1000 < currentDate.getTime()) {
+        const data = await refreshToken()
+        config.headers["authorization"] = "Bearer " + data.accessToken
+      }
+      return config
+    },
+    error => {
+      return Promise.reject(error)
+    }
+  )
+
+  const handleDelete = async id => {
+    setError(false)
+    setSucess(false)
+    try {
+      await axiosJWT.delete(`/users/${id}`, {
+        headers: { authorization: "Bearer " + user.accessToken },
+      })
+      setSucess(true)
+    } catch (err) {
+      setError(true)
+    }
+  }
 
   return (
     <div className="container">

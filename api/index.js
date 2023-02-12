@@ -20,7 +20,7 @@ const users = [
 
 let refreshTokens = []
 
-app.post("/api/refreshtoken", (req, res) => {
+app.post("/api/refresh", (req, res) => {
   // take the refresh token from the user
   const refreshToken = req.body.token
 
@@ -67,14 +67,14 @@ app.post("/api/login", (req, res) => {
   )
   if (user) {
     // Generate an access token
-    const acsessToken = generateAccessToken(user)
+    const accessToken = generateAccessToken(user)
     const refreshToken = generateRefreshToken(user)
     refreshTokens.push(refreshToken)
 
     res.json({
       username: user.username,
       isAdmin: user.isAdmin,
-      acsessToken,
+      accessToken,
       refreshToken,
     })
   } else {
@@ -87,6 +87,8 @@ const verify = (req, res, next) => {
   const authHeader = req.headers.authorization
   if (authHeader) {
     const token = authHeader.split(" ")[1]
+
+    console.log(authHeader)
 
     jwt.verify(token, "mySecretKey", (err, user) => {
       if (err) {
@@ -102,6 +104,7 @@ const verify = (req, res, next) => {
 
 app.delete("/api/users/:id", verify, (req, res) => {
   if (req.user.id === req.params.id || req.user.isAdmin) {
+    console.log(req.user.id, req.params.id, req.user.isAdmin)
     res.status(200).json("User has been deleted!")
   } else {
     res.status(403).json("You are not allowed to delete this user!")
