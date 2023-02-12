@@ -85,3 +85,80 @@ const verify = (req, res, next) => {
 ### 토큰을 담을 떄 Bearer를 명시해주는 이유
 
 - Bearer 키워드는 인증의 종류를 명시하는 것이다. Bearer를 명시해줌으로써, Bearer Token authentication이라는 인증 방식을 사용한다는 것을 알 수 있다.
+
+<br>
+
+### Refresh Token
+
+- Refresh Token은 Access Token이 만료되었을 때, 새로운 Access Token을 발급받기 위해 사용하는 토큰이다.
+- 처음에 accessToken을 보낼 때, refreshToken도 같이 보내준다. 그리고, accessToken이 만료되면, 클라이언트는 refresh api로 body에 refreshToken을 담아서 보낸다. 서버는 refreshToken을 검증하고, 새로운 accessToken을 발급해준다. 새로운 accessToken을 발급할 때, 새로운 refreshToken도 발급해준다.
+- 이전에 사용했던 refresh token은 인증을하고나면, 서버에서는 삭제해준다. 때문에, 한번 사용한 refresh token은 다시 사용할 수 없다.
+- refresh token을 사용하는 방법은 아래와 같다.
+
+```js
+const generateRefreshToken = user => {
+  return jwt.sign(
+    { id: user.id, isAdmin: user.isAdmin },
+    "myRefreshSecretKey",
+    { expiresIn: "15m" }
+  )
+}
+```
+
+- 먼저 refresh token을 생성하는 함수를 만든다. `jwt.sign()`을 통해 refresh token을 생성한다. 첫번째 인자로는 토큰에 담길 정보를 넣고, 두번째 인자로는 비밀키를 넣는다. 세번째 인자로는 토큰의 유효기간을 넣는다.
+
+```js
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body
+  const user = users.find(
+    u => u.username === username && u.password === password
+  )
+  if (user) {
+    // Generate an access token
+    const acsessToken = generateAccessToken(user)
+    const refreshToken = generateRefreshToken(user)
+    refreshTokens.push(refreshToken)
+
+    res.json({
+      username: user.username,
+      isAdmin: user.isAdmin,
+      acsessToken,
+      refreshToken,
+    })
+  } else {
+    res.status(400).json("Wrong username or password!")
+  }
+})
+```
+
+- 처음 로그인을 할 때, accessToken과 refreshToken을 생성한다. refreshToken은 refreshTokens 배열에 담아둔다. refreshToken을 배열에 담든, db에 담든 상관없다.
+
+```js
+app.post("/api/refreshtoken", (req, res) => {
+  // take the refresh token from the user
+  const refreshToken = req.body.token
+
+  // send error if there is no token or it is invalid
+  if (!refreshToken) return res.status(401).json("You are not authenticated!")
+  if (!refreshTokens.includes(refreshToken))
+    return res.status(403).json("Refresh token is not valid!")
+
+  jwt.verify(refreshToken, "myRefreshSecretKey", (err, user) => {
+    err && console.log(err)
+    refreshTokens = refreshTokens.filter(token => token !== refreshToken) // remove the token from the array
+
+    const newAccessToken = generateAccessToken(user) // generate new access token
+    const newRefreshToken = generateRefreshToken(user) // generate new refresh token
+
+    refreshTokens.push(newRefreshToken) // add new refresh token to the array
+
+    res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    })
+  })
+  // if everything is ok, create new access token, refresh token and send to the user
+})
+```
+
+- 유저가 refreshtoken api를 호출하면, 유저가 보낸 refreshToken을 검증한다. 검증이 끝나면, 새로운 accessToken과 refreshToken을 발급해준다. 새로운 refreshToken은 refreshTokens 배열에 담아둔다.
