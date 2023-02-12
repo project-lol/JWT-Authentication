@@ -18,6 +18,48 @@ const users = [
   },
 ]
 
+let refreshTokens = []
+
+app.post("/api/refreshtoken", (req, res) => {
+  // take the refresh token from the user
+  const refreshToken = req.body.token
+
+  // send error if there is no token or it is invalid
+  if (!refreshToken) return res.status(401).json("You are not authenticated!")
+  if (!refreshTokens.includes(refreshToken))
+    return res.status(403).json("Refresh token is not valid!")
+
+  jwt.verify(refreshToken, "myRefreshSecretKey", (err, user) => {
+    err && console.log(err)
+    refreshTokens = refreshTokens.filter(token => token !== refreshToken) // remove the token from the array
+
+    const newAccessToken = generateAccessToken(user) // generate new access token
+    const newRefreshToken = generateRefreshToken(user) // generate new refresh token
+
+    refreshTokens.push(newRefreshToken) // add new refresh token to the array
+
+    res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    })
+  })
+  // if everything is ok, create new access token, refresh token and send to the user
+})
+
+const generateAccessToken = user => {
+  return jwt.sign({ id: user.id, isAdmin: user.isAdmin }, "mySecretKey", {
+    expiresIn: "15m",
+  })
+}
+
+const generateRefreshToken = user => {
+  return jwt.sign(
+    { id: user.id, isAdmin: user.isAdmin },
+    "myRefreshSecretKey",
+    { expiresIn: "15m" }
+  )
+}
+
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body
   const user = users.find(
@@ -25,12 +67,16 @@ app.post("/api/login", (req, res) => {
   )
   if (user) {
     // Generate an access token
-    const acsessToken = jwt.sign(
-      { id: user.id, isAdmin: user.isAdmin },
-      "mySecretKey",
-      { expiresIn: "15m" }
-    )
-    res.json({ username: user.username, isAdmin: user.isAdmin, acsessToken })
+    const acsessToken = generateAccessToken(user)
+    const refreshToken = generateRefreshToken(user)
+    refreshTokens.push(refreshToken)
+
+    res.json({
+      username: user.username,
+      isAdmin: user.isAdmin,
+      acsessToken,
+      refreshToken,
+    })
   } else {
     res.status(400).json("Wrong username or password!")
   }
